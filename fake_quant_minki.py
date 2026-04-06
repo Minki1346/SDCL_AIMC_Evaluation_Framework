@@ -386,9 +386,9 @@ def quantize_activation_per_tensor_absmax(t, wl_activate=8):  # wl_activate 받�
     return t, scales  # return t and scales (2024.05.22, Chan-Gi Yook)
 
 # Transformer Layer & projection selection
-PROJ_NAME_LIST = ["q_proj","k_proj","v_proj","o_proj","up_proj","down_proj","gate_proj"]
-BLOCK_IDX_LIST = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
-
+# PROJ_NAME_LIST = ["q_proj","k_proj","v_proj","o_proj","up_proj","down_proj","gate_proj"]
+# BLOCK_IDX_LIST = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+# ppl_eval에서 통합됐으므로 주석처리함
 
 def _get_weight_cache_files(block_idx, layer_idx, proj_name, weight_quant, wl_weight):
     """
