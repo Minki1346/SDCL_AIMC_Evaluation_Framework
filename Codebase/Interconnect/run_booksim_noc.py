@@ -44,6 +44,10 @@
 
 import os, re, glob, sys, math
 import numpy as np
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+INTERCONNECT_DIR = Path(__file__).resolve().parent
 
 def run_booksim_noc(trace_file_dir):
 
@@ -60,7 +64,7 @@ def run_booksim_noc(trace_file_dir):
     file_counter = 0
     
     # Create directory to store config files
-    os.system('mkdir -p /home/gkrish19/SIAM_Integration/Interconnect/logs/configs')
+    os.makedirs(str(INTERCONNECT_DIR / 'logs' / 'configs'), exist_ok=True)
     
     for chiplet_idx in range(0, num_chiplets):
     
@@ -94,11 +98,11 @@ def run_booksim_noc(trace_file_dir):
             mesh_size = int(mesh_sizes_per_chiplet[chiplet_idx])
     
             # Open read file handle of config file
-            fp = open('/home/gkrish19/SIAM_Integration/Interconnect/mesh_config_trace_based', 'r')
-    
+            fp = open(str(INTERCONNECT_DIR / 'mesh_config_trace_based'), 'r')
+
             # Set path to config file
-            config_file = '/home/gkrish19/SIAM_Integration/Interconnect/logs/configs/chiplet_' + str(chiplet_idx) + '_mesh_config'
-    
+            config_file = str(INTERCONNECT_DIR / 'logs' / 'configs' / ('chiplet_' + str(chiplet_idx) + '_mesh_config'))
+
             # Open write file handle for config file
             outfile = open(config_file, 'w')
     
@@ -122,68 +126,70 @@ def run_booksim_noc(trace_file_dir):
             outfile.close()
     
             # Set path to log file for trace files
-            log_file = '/home/gkrish19/SIAM_Integration/Interconnect/logs/chiplet_' + str(chiplet_idx) + '_layer_' + str(run_id) + '.log'
-    
+            log_file = str(INTERCONNECT_DIR / 'logs' / ('chiplet_' + str(chiplet_idx) + '_layer_' + str(run_id) + '.log'))
+
             # Copy trace file
-            os.system('cp ' + file + ' ./trace_file.txt')
-    
+            os.system('cp "' + file + '" "./trace_file.txt"')
+
             # Run Booksim with config file and save log
-            booksim_command = '/home/gkrish19/SIAM_Integration/Interconnect/booksim ' + config_file + ' > ' + log_file
+            booksim_command = '"' + str(INTERCONNECT_DIR / 'booksim') + '" "' + config_file + '" > "' + log_file + '"'
             os.system(booksim_command)
     
             # Grep for packet latency average from log file
-            latency = os.popen('grep "Trace is finished in" ' + log_file + ' | tail -1 | awk \'{print $5}\'').read().strip()
+            latency = os.popen('grep "Trace is finished in" "' + log_file + '" | tail -1 | awk \'{print $5}\'').read().strip()
     
             # print('[ INFO] Latency for Chiplet : ' + str(chiplet_idx) + ' Layer : ' + str(run_id) + ' is ' + latency +'\n')
             total_latency = total_latency + int(latency)
     
     
-            power = os.popen('grep "Total Power" ' + log_file + ' | tail -1 | awk \'{print $4}\'').read().strip()
+            power = os.popen('grep "Total Power" "' + log_file + '" | tail -1 | awk \'{print $4}\'').read().strip()
     
             # print('[ INFO] Power for Chiplet : ' + str(chiplet_idx)  + ' Layer : ' + str(run_id) + ' is ' + power +'\n')
             
             total_power = total_power + float(power)
     
     
-            area = os.popen('grep "Total Area" ' + log_file + ' | tail -1 | awk \'{print $4}\'').read().strip()
+            area = os.popen('grep "Total Area" "' + log_file + '" | tail -1 | awk \'{print $4}\'').read().strip()
     
             # print('[ INFO] Area for Chiplet : ' + str(chiplet_idx)  + ' Layer : ' + str(run_id) + ' is ' + area +'\n')
     
             total_area = total_area + float(area)
     
         # Open output file handle to write latency
-        outfile_area = open('/home/gkrish19/SIAM_Integration/Interconnect/logs/booksim_area.csv', 'a')
-    
+        outfile_area = open(str(INTERCONNECT_DIR / 'logs' / 'booksim_area.csv'), 'a')
+
         if file_counter == 0:
             # print('No NoC for this Chiplet.')
             outfile_area.write(str(0) + '\n')
             outfile_area.close()
-        else:    
+        else:
             outfile_area.write(str(total_area/file_counter) + '\n')
             outfile_area.close()
-            area_file = open('/home/gkrish19/SIAM_Integration/Final_Results/area_chiplet.csv', 'a')
-            area_file.write('Total NoC area is' + '\t' + str(total_area/file_counter) +  '\t' + 'um^2' + '\n')
+            os.makedirs(str(BASE_DIR / 'Final_Results'), exist_ok=True)
+            area_file = open(str(BASE_DIR / 'Final_Results' / 'area_chiplet.csv'), 'a')
+            area_file.write('Total NoC area is' + '\t' + str(total_area/file_counter) + '\t' + 'um^2' + '\n')
             area_file.close()
-            
+
         # Open output file handle to write latency
-        outfile_latency = open('/home/gkrish19/SIAM_Integration/Interconnect/logs/booksim_latency.csv', 'a')
+        outfile_latency = open(str(INTERCONNECT_DIR / 'logs' / 'booksim_latency.csv'), 'a')
         outfile_latency.write(str(total_latency) + '\n')
         outfile_latency.close()
 
-        latency_file = open('/home/gkrish19/SIAM_Integration/Final_Results/Latency_chiplet.csv', 'a')
+        os.makedirs(str(BASE_DIR / 'Final_Results'), exist_ok=True)
+        latency_file = open(str(BASE_DIR / 'Final_Results' / 'Latency_chiplet.csv'), 'a')
         latency_file.write('Total NoC latency is' + '\t' + str(total_latency*1e-9) + '\t' + 's' + '\n')
         latency_file.close()
-    
-        # Open output file handle to write latency
-        outfile_power = open('/home/gkrish19/SIAM_Integration/Interconnect/logs/booksim_power.csv', 'a')
-        
+
+        # Open output file handle to write power
+        outfile_power = open(str(INTERCONNECT_DIR / 'logs' / 'booksim_power.csv'), 'a')
+
         if file_counter == 0:
             outfile_power.write(str(0) + '\n')
             outfile_power.close()
         else:
             outfile_power.write(str(total_power/file_counter) + '\n')
             outfile_power.close()
-            power_file = open('/home/gkrish19/SIAM_Integration/Final_Results/Energy_chiplet.csv', 'a')
+            power_file = open(str(BASE_DIR / 'Final_Results' / 'Energy_chiplet.csv'), 'a')
             power_file.write('Total NoC power is' + '\t' + str(total_power/file_counter) + '\t' + 'mW' + '\n')
             power_file.close()
     

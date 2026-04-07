@@ -1,0 +1,22 @@
+Chiplet_1,Total readEnergy,1.03532e+07,pJ
+Chiplet_1,Total leakage Energy,8.80102e+06,pJ
+Chiplet_1,Total Routing Energy,1.37957e+06,pJ
+Chiplet_1,Total Buffer Energy,501329,pJ
+Chiplet_1,Total Local Buffer Energy,501329,pJ
+Chiplet_1,Total Local Routing Energy,1.37957e+06,pJ
+Chiplet_1,Total ADC Energy,5.47081e+06,pJ
+Chiplet_1,Total Accumulation Energy,1.29534e+06,pJ
+Chiplet_1,Total Other Peripheries Energy,87589.3,pJ
+Chiplet_2,Total readEnergy,1.21845e+07,pJ
+Chiplet_2,Total leakage Energy,1.06451e+07,pJ
+Chiplet_2,Total Routing Energy,2.24126e+06,pJ
+Chiplet_2,Total Buffer Energy,564476,pJ
+Chiplet_2,Total Local Buffer Energy,564476,pJ
+Chiplet_2,Total Local Routing Energy,2.24126e+06,pJ
+Chiplet_2,Total ADC Energy,5.71049e+06,pJ
+Chiplet_2,Total Accumulation Energy,1.58007e+06,pJ
+Chiplet_2,Total Other Peripheries Energy,126361,pJ
+Total NoC power is	1.2890892857142855	mW
+Total NoC power is	1.632215	mW
+Total NoP power is	1.8759	mW
+Total NoP Driver Energy is	181008000.0	pJ

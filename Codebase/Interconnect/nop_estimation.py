@@ -46,9 +46,12 @@ Created on Fri Sep 24 17:22:09 2021
 
 import os, re, glob, sys, math
 import timeit
+from pathlib import Path
 
 from Interconnect.generate_traces_nop import generate_traces_nop
 from Interconnect.run_booksim_mesh_chiplet_nop import run_booksim_mesh_chiplet_nop
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 start = timeit.default_timer()
 
@@ -66,10 +69,10 @@ def nop_interconnect_estimation(quantization_bit, bus_width, netname, xbar_size,
     print('Starting to simulate the NoP trace')
     
     trace_directory_name = str(type) + '_' + str(num_chiplets) + '_cnt_size_' + str(chiplet_size) + '_scale_' + str(scale) + '_bus_width_' + str(bus_width)
-    trace_directory_full_path = '/home/gkrish19/SIAM_Integration/Interconnect/' + netname + '_NoP_traces' + '/' + trace_directory_name
-    
+    trace_directory_full_path = str(BASE_DIR / 'Interconnect' / (netname + '_NoP_traces') / trace_directory_name)
+
     results_directory_name = 'results_' + trace_directory_name
-    results_directory_full_path = '/home/gkrish19/SIAM_Integration/Final_Results/NoP_Results_' + 'results_' + netname + '/' + results_directory_name
+    results_directory_full_path = str(BASE_DIR / 'Final_Results' / ('NoP_Results_results_' + netname) / results_directory_name)
     
     os.system('pwd')
     

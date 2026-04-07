@@ -1,0 +1,15 @@
+Chiplet_1,Total readLatency,101396,ns
+Chiplet_1,Total Buffer Latency,25300.5,ns
+Chiplet_1,Total Routing Latency,9456.77,ns
+Chiplet_1,Total ADC Latency,9344.7,ns
+Chiplet_1,Total Accumulation Latency,24819.6,ns
+Chiplet_1,Total Other Peripheries Latency,32474.8,ns
+Chiplet_2,Total readLatency,113605,ns
+Chiplet_2,Total Buffer Latency,26013.6,ns
+Chiplet_2,Total Routing Latency,9884.83,ns
+Chiplet_2,Total ADC Latency,1537.8,ns
+Chiplet_2,Total Accumulation Latency,28986.8,ns
+Chiplet_2,Total Other Peripheries Latency,37837.3,ns
+Total NoC latency is	4.1900000000000005e-06	s
+Total NoC latency is	8.74e-07	s
+Total NoP latency is	5.08e-07	s

@@ -45,6 +45,8 @@ from pathlib import Path
 import time
 import shutil
 
+BASE_DIR = Path(__file__).resolve().parent
+
 from Interconnect.noc_estimation import interconnect_estimation
 from Interconnect.nop_estimation import nop_interconnect_estimation
 from NoP_hardware import *
@@ -229,11 +231,11 @@ def main():
 
     # Calculate and Dump NoP Hardware Cost
     Nop_area, NoP_energy = NoP_hardware_estimation(ebit, area_per_lane, clocking_area, n_lane, num_chiplets, n_bits_per_chiplet)
-    area_file = open('/home/gkrish19/SIAM_Integration/Final_Results/area_chiplet.csv', 'a')
+    area_file = open(str(BASE_DIR / 'Final_Results' / 'area_chiplet.csv'), 'a')
     area_file.write('Total NoP Driver area is' + '\t' + str(Nop_area) + '\t' + 'um^2')
     area_file.close()
 
-    energy_file = open('/home/gkrish19/SIAM_Integration/Final_Results/Energy_chiplet.csv', 'a')
+    energy_file = open(str(BASE_DIR / 'Final_Results' / 'Energy_chiplet.csv'), 'a')
     energy_file.write('Total NoP Driver Energy is' + '\t' + str(NoP_energy) + '\t' + 'pJ')
     energy_file.close()
 

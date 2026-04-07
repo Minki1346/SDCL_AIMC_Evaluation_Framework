@@ -49,6 +49,8 @@ import math
 from Interconnect.generate_traces_noc import generate_traces_noc
 from Interconnect.run_booksim_noc import run_booksim_noc
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 #Take all below parameters as argument
 # quantization_bit = 8
@@ -70,18 +72,18 @@ def interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chi
     print('Starting to simulate the NoC trace')
 
 
-    trace_directory_name = type + str(num_chiplets) + '_cnt_size_' + str(chiplet_size) + '_scale_' + str(scale) + '/'
-    trace_directory_full_path = '/home/gkrish19/SIAM_Integration/Interconnect/' + netname + '_NoC_traces' + '/' + trace_directory_name
-    
+    trace_directory_name = type + str(num_chiplets) + '_cnt_size_' + str(chiplet_size) + '_scale_' + str(scale)
+    trace_directory_full_path = str(BASE_DIR / 'Interconnect' / (netname + '_NoC_traces') / trace_directory_name) + '/'
+
     results_directory_name = trace_directory_name
-    results_directory_full_path = '/home/gkrish19/SIAM_Integration/Final_Results/NoC_Results_' + netname + '/' + results_directory_name
-                
+    results_directory_full_path = str(BASE_DIR / 'Final_Results' / ('NoC_Results_' + netname) / results_directory_name)
+
     run_booksim_noc(trace_directory_full_path)
     if (not os.path.exists(results_directory_full_path)):
-    	os.makedirs(results_directory_full_path)
-    
-    
-    os.system('mv /home/gkrish19/SIAM_Integration/Interconnect/logs/ ' + results_directory_full_path)
+        os.makedirs(results_directory_full_path)
+
+    logs_src = str(BASE_DIR / 'Interconnect' / 'logs')
+    os.system('mv "' + logs_src + '" "' + results_directory_full_path + '"')
 
 
 # interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale)

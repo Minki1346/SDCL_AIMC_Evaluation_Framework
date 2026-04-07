@@ -48,6 +48,9 @@ import numpy as np
 import math
 import os
 import shutil
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 #Take all below parameters as argument
 #quantization_bit = 8
@@ -62,8 +65,7 @@ import shutil
 def generate_traces_noc(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale):
 
 
-    # directory_name = netname + '/' + type + '/' + str(num_chiplets) + '_Chiplets_' + str(chiplet_size) + '_Tiles/to_interconnect'
-    directory_name = '/home/gkrish19/SIAM_Integration/to_interconnect'
+    directory_name = str(BASE_DIR / 'to_interconnect')
     tiles_csv_file_name = directory_name + '/num_tiles_per_layer_chiplet.csv'
     num_tiles_each_layer = pd.read_csv(tiles_csv_file_name, header=None)
     num_tiles_each_layer = num_tiles_each_layer.to_numpy()
@@ -80,7 +82,7 @@ def generate_traces_noc(quantization_bit, bus_width, netname, xbar_size, chiplet
     tile_begin_array = data[:, 0]
     tile_end_array = data[:, 1]
     
-    dir_name = '/home/gkrish19/SIAM_Integration/Interconnect/' + netname + '_NoC_traces' + '/' + type + str(num_chiplets) + '_cnt_size_' + str(chiplet_size) + '_scale_' + str(scale)
+    dir_name = str(BASE_DIR / 'Interconnect' / (netname + '_NoC_traces') / (type + str(num_chiplets) + '_cnt_size_' + str(chiplet_size) + '_scale_' + str(scale)))
             
     
     if (os.path.isdir(dir_name)):
