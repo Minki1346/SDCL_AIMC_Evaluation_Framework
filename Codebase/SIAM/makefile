@@ -47,14 +47,16 @@ ALLOBJ := $(ALLSRC:.cpp=.o)
 OBJ := $(SRC:.cpp=.o)
 
 CXX := g++
-CXXFLAGS := -fopenmp -O3 -std=c++0x -w	# -w disables warnings
+# -fPIC: relocatable objects; -fno-pie + LDFLAGS -no-pie: avoid R_X86_64_32 vs PIE link errors on modern gcc/ld
+CXXFLAGS := -fopenmp -O3 -std=c++0x -w -fPIC -fno-pie
+LDFLAGS := -no-pie
 #CXXFLAGS := -fopenmp -std=c++0x -w -g # -w disables warnings
 
 .PHONY: all clean
 all: $(MAINS:.cpp=)
 
 $(MAINS:.cpp=): $(OBJ) $$@.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $@
 %.o: %.cpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 

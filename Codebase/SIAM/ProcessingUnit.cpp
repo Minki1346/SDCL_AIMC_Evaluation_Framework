@@ -272,7 +272,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 											double *bufferLatency, double *bufferDynamicEnergy, double *icLatency, double *icDynamicEnergy,
 											double *coreLatencyADC, double *coreLatencyAccum, double *coreLatencyOther, double *coreEnergyADC,
 											double *coreEnergyAccum, double *coreEnergyOther) {
-
+	cout << "[PU] START ProcessingUnitCalculatePerformance (top of function)" << endl << flush;
 	/*** define how many subArray are used to map the whole layer ***/
 	*readLatency = 0;
 	*readDynamicEnergy = 0;
@@ -295,14 +295,17 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 	double subArrayLatencyAccum = 0;
 	double subArrayLatencyOther = 0;
 
+	
 	if (arrayDupRow*arrayDupCol > 1) {
 		//cout<<"\n Entered array DUp if in pU.cpp"<<endl;
 		// weight matrix is duplicated among subArray
 		if (arrayDupRow < numSubArrayRow || arrayDupCol < numSubArrayCol) {
+			cout << "[PU] branch: arrayDup with subArray tiling (i,j over subarrays)" << endl << flush;
 			// a couple of subArrays are mapped by the matrix
 			// need to redefine the data-grab start-point
 			for (int i=0; i<ceil((double) weightMatrixRow/(double) param->numRowSubArray); i++) {
 				for (int j=0; j<ceil((double) weightMatrixCol/(double) param->numColSubArray); j++) {
+					// cout << "--------------------  check point 2 in ProcessingUnit.cpp ----------------------" << endl;
 					int numRowMatrix = min(param->numRowSubArray, weightMatrixRow-i*param->numRowSubArray);
 					int numColMatrix = min(param->numColSubArray, weightMatrixCol-j*param->numColSubArray);
 
@@ -315,6 +318,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 
 						for (int i=0; i<numInVector; i++) 
 						{                 // calculate single subArray through the total input vectors
+							// cout << "--------------------  check point 3 in ProcessingUnit.cpp ----------------------" << endl;
 							double activityRowRead = 0;
 							vector<double> input;
 							input = GetInputVector(subArrayInput, i, &activityRowRead);
@@ -370,13 +374,17 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 			*coreLatencyOther = (*coreLatencyOther)/(arrayDupRow*arrayDupCol);
 			//*readLatency += *coreLatencyADC + *coreLatencyAccum + *coreLatencyOther;
 		}	else {
+			// cout << "--------------------  check point 4 in ProcessingUnit.cpp ----------------------" << endl;
 			// assign weight and input to specific subArray
 			vector<vector<double> > subArrayMemory;
 			subArrayMemory = CopySubArray(newMemory, 0, 0, weightMatrixRow, weightMatrixCol);
 			vector<vector<double> > subArrayInput;
 			subArrayInput = CopySubInput(inputVector, 0, numInVector, weightMatrixRow);
+			// cout << "numInVector: " << numInVector << endl;
 
 			for (int i=0; i<numInVector; i++) {                 // calculate single subArray through the total input vectors
+				// cout << "--------------------  check point 5 in ProcessingUnit.cpp ----------------------" << endl;
+				// cout << "i: " << i << endl;
 				double activityRowRead = 0;
 				vector<double> input;
 				input = GetInputVector(subArrayInput, i, &activityRowRead);
@@ -406,6 +414,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 				*coreEnergyADC += subArray->readDynamicEnergyADC;
 				*coreEnergyAccum += subArray->readDynamicEnergyAccum;
 				*coreEnergyOther += subArray->readDynamicEnergyOther;
+				// cout << "PU: inner loop finished" << endl;
 			}
 			// do not pass adderTree
 			*readLatency = subArrayReadLatency/(arrayDupRow*arrayDupCol);
@@ -420,11 +429,13 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 
 
 	else {
+		
 		//cout<<"\n Entered array DUp if in pU.cpp"<<endl;
 		// weight matrix is further partitioned inside PE (among subArray) --> no duplicated
 		for (int i=0; i<numSubArrayRow/*ceil((double) weightMatrixRow/(double) param->numRowSubArray)*/; i++) {
 			for (int j=0; j<numSubArrayCol/*ceil((double) weightMatrixCol/(double) param->numColSubArray)*/; j++) {
 				if ((i*param->numRowSubArray < weightMatrixRow) && (j*param->numColSubArray < weightMatrixCol) && (i*param->numRowSubArray < weightMatrixRow) ) {
+					// cout << "--------------------  check point 6 in ProcessingUnit.cpp ----------------------" << endl;
 					int numRowMatrix = min(param->numRowSubArray, weightMatrixRow-i*param->numRowSubArray);
 					int numColMatrix = min(param->numColSubArray, weightMatrixCol-j*param->numColSubArray);
 					// assign weight and input to specific subArray
@@ -434,6 +445,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 					subArrayInput = CopySubInput(inputVector, i*param->numRowSubArray, numInVector, numRowMatrix);
 
 					for (int i=0; i<numInVector; i++) {                 // calculate single subArray through the total input vectors
+						// cout << "--------------------  check point 7 in ProcessingUnit.cpp ----------------------" << endl;
 						double activityRowRead = 0;
 						vector<double> input;
 						input = GetInputVector(subArrayInput, i, &activityRowRead);
@@ -479,8 +491,9 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 			}
 		}
 	}
+	cout << "[PU] END heavy compute (subArray/adder); next: buffer/bus" << endl << flush;
 	//considering buffer activation: no matter speedup or not, the total number of data transferred is fixed
-
+	// cout << "PU: before buffer/bus" << endl;
 	// input buffer: total num of data loaded in = weightMatrixRow*numInVector
 	// output buffer: total num of data transferred = weightMatrixRow*numInVector/param->numBitInput (total num of IFM in the PE) *adderTree->numAdderTree*adderTree->numAdderBit (bit precision of OFMs)
 	bufferInput->CalculateLatency(0, numInVector);
@@ -525,6 +538,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 	//*coreEnergyOther += (*bufferDynamicEnergy) + (*icDynamicEnergy);
 
 	// TODO: Training
+	return 0; // ProcessingUnitCalculatePerformance 함수의 return 값 설정
 
 }
 

@@ -1137,6 +1137,7 @@ double ChipCalculatePerformance(MemCell& cell, int layerNumber, const string &ne
 
 	}
 	*leakage = tileLeakage;
+	return 0; // ChipCalculatePerformance 함수의 return 값 설정
 }
 
 
@@ -1962,4 +1963,5 @@ vector<vector<double>> Chiplet_Accum_Buffer(InputParameter& inputParameter, Tech
 		}
 
 	}
+	return vector<vector<double>>();  // Chiplet_Accum_Buffer 함수의 return 값 설정
 }
