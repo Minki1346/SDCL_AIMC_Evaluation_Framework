@@ -525,6 +525,7 @@ double ProcessingUnitCalculatePerformance(SubArray *subArray, const vector<vecto
 	//*coreEnergyOther += (*bufferDynamicEnergy) + (*icDynamicEnergy);
 
 	// TODO: Training
+	return 0; // ProcessingUnitCalculatePerformance 함수의 return 값 설정
 
 }
 

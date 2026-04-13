@@ -47,7 +47,7 @@ ALLOBJ := $(ALLSRC:.cpp=.o)
 OBJ := $(SRC:.cpp=.o)
 
 CXX := g++
-CXXFLAGS := -fopenmp -O3 -std=c++0x -w	# -w disables warnings
+CXXFLAGS := -fopenmp -O3 -std=c++0x -fPIE -w	# -fPIE: PIE 링크와 호환 (구 .o와 혼용 시 ld 오류 방지)
 #CXXFLAGS := -fopenmp -std=c++0x -w -g # -w disables warnings
 
 .PHONY: all clean
