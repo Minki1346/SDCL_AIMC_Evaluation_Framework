@@ -52,14 +52,14 @@ from Interconnect.nop_estimation import nop_interconnect_estimation
 from NoP_hardware import *
 
 # Globabal variables for the Simulation
-num_classes = 10
+num_classes = 4096
 
 # NoC Parameters
 quantization_bit = 8
 weight_length = quantization_bit
 input_length = quantization_bit
 bus_width = 32
-netname = 'ResNet-20'
+netname = 'Llama2-7b'
 xbar_size = 128
 chiplet_size = 16 # Number of IMC tiles inside chiplet
 num_chiplets = 25 # Total number of Chiplets
@@ -74,6 +74,11 @@ n_lane = 32
 n_bits_per_chiplet = 4.19E+06 #Automate this in next version
 scale_nop = 10
 
+HW_MODE = 0 # 0 : qkvo + up, gate, down + kv cache 
+            # 1 : qkvo + kv cache 
+HW_BLOCK_IDX_LIST=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+
+# HW_BLOCK_IDX_LIST=[0]
 
 def write_matrix_weight(input_matrix, filename):
     cout = input_matrix.shape[-1]
@@ -81,14 +86,14 @@ def write_matrix_weight(input_matrix, filename):
     np.savetxt(filename, weight_matrix, delimiter=",", fmt='%10.5f')
 
 def write_matrix_activation_conv(input_matrix, fill_dimension, length, filename):
-    filled_matrix_b = np.ones([input_matrix.shape[2], input_matrix.shape[1] * length], dtype=np.str)
+    filled_matrix_b = np.ones([input_matrix.shape[2], input_matrix.shape[1] * length], dtype=str) # 파이썬 버전 이슈
     filled_matrix_bin, scale = dec2bin(input_matrix[0, :], length)
     for i, b in enumerate(filled_matrix_bin):
         filled_matrix_b[:, i::length] = b.transpose()
     np.savetxt(filename, filled_matrix_b, delimiter=",", fmt='%s')
 
 def write_matrix_activation_fc(input_matrix, input_length, fill_dimension, length, filename):
-    filled_matrix_b = np.ones([input_matrix.shape[1], length], dtype=np.str)
+    filled_matrix_b = np.ones([input_matrix.shape[1], length], dtype=str)
     filled_matrix_bin, scale = dec2bin(input_matrix[0, :], length)
     for i, b in enumerate(filled_matrix_bin):
         filled_matrix_b[:, i] = b
@@ -175,7 +180,20 @@ def main():
     f = open('./layer_record/trace_command.sh', "w")
     
     # Read the NetWork.csv file
-    network_params = np.loadtxt('./SIAM/NetWork.csv', dtype=int, delimiter=',')
+    if HW_MODE == 0:
+        network_params = np.loadtxt('./SIAM/NetWork_mode_0.csv', dtype=int, delimiter=',')
+    else:
+        network_params = np.loadtxt('./SIAM/NetWork_mode_1.csv', dtype=int, delimiter=',')
+    # network_params = np.loadtxt('./SIAM/NetWork.csv', dtype=int, delimiter=',')
+    network_params = np.tile(network_params, (len(HW_BLOCK_IDX_LIST), 1))
+    
+    np.savetxt(
+        str(BASE_DIR / 'SIAM' / 'NetWork.csv'),
+        np.atleast_2d(network_params).astype(int),
+        delimiter=',',
+        fmt='%d',
+    )
+
     num_layers = network_params.shape[0]
 
     # Create input matrix and weight matrix
@@ -191,19 +209,25 @@ def main():
         IN.append(temp_array_IN)
         
 
-        if (layer_idx == (num_layers-1)):
-                temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
-                                                    network_params[layer_idx][3], network_params[layer_idx][2], \
-                                                        num_classes), dtype='int8')
-        else:
-            temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
+        # if (layer_idx == (num_layers-1)):
+        #         temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
+        #                                             network_params[layer_idx][3], network_params[layer_idx][2], \
+        #                                                 num_classes), dtype='int8')
+        # else:
+        #     temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
+        #                                         network_params[layer_idx][3], network_params[layer_idx][2], \
+        #                                             network_params[layer_idx][5]), dtype='int8')
+        temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
                                                 network_params[layer_idx][3], network_params[layer_idx][2], \
                                                     network_params[layer_idx][5]), dtype='int8')
         W.append(temp_array_W)
+   
     f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
 
+    # f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
+
     # Debug Line
-    #f.write('gdb --args ./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
+    # f.write('gdb --args ./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
 
     for i,(input,weight) in enumerate(zip(IN,W)):
         input_file_name = 'input_layer' + str(i) + '.csv'
