@@ -3,6 +3,8 @@
 Codebase/ramulator_final/
 Codebase/VAMPIRE/
 
+Codebase/layer_record/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

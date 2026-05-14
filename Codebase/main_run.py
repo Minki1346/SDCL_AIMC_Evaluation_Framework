@@ -74,9 +74,9 @@ n_lane = 32
 n_bits_per_chiplet = 4.19E+06 #Automate this in next version
 scale_nop = 10
 
-HW_MODE = 0 # 0 : qkvo + up, gate, down + kv cache 
+HW_MODE = 1 # 0 : qkvo + up, gate, down + kv cache 
             # 1 : qkvo + kv cache 
-HW_BLOCK_IDX_LIST=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+HW_BLOCK_IDX_LIST=[0,1]
 
 # HW_BLOCK_IDX_LIST=[0]
 
@@ -222,8 +222,10 @@ def main():
                                                     network_params[layer_idx][5]), dtype='int8')
         W.append(temp_array_W)
    
-    f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
-
+    hw_block_idx_arg = ",".join(map(str, HW_BLOCK_IDX_LIST))
+    f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' '+str(HW_MODE)+' '+hw_block_idx_arg+' ') 
+    # main.cpp에 hwmode,index 인자 넘김, 기존: argv[0]~argv[3]까지 사용, argv[4]~ 가중치, 입력 csv | 변경 : argv[0]~argv[3]까지 사용, argv[4],[5] hwmode, index, argv[6]~ 가중치, 입력 csv
+    # 050726 Minki Choi
     # f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
 
     # Debug Line

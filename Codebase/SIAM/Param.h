@@ -56,6 +56,7 @@ public:
 	bool globalBufferType, tileBufferType, peBufferType, chipActivation, reLu, novelMapping, mode, chiplet_structure, fixed_cnt_chiplet;
 
 	double clkFreq, featuresize, readNoise, resistanceOn, resistanceOff, maxConductance, minConductance;
+	double sizeofchiplet; // chiplet 당 tile 갯수 계산용 추가 (05/06/26)
 	int temp, technode, wireWidth, multipleCells;
 	double maxNumLevelLTP, maxNumLevelLTD, readVoltage, readPulseWidth, writeVoltage;
 	double accessVoltage, resistanceAccess;

@@ -49,6 +49,7 @@
 #include <sstream>
 #include <chrono>
 #include <algorithm>
+#include <cctype>
 using namespace std; 
 #include "constant.h"
 #include "formula.h"
@@ -72,7 +73,36 @@ int main(int argc, char * argv[]) {
 	gen.seed(0);
 
 	vector<vector<double> > netStructure;
-	netStructure = getNetStructure(argv[1]);
+	netStructure = getNetStructure(argv[1]); //네트워크 구조 로드
+    // parsing 050726 Minki Choi
+	// argv: 레거시는 레이어 파일이 argv[4]부터, main_run.py는 argv[4]=HW_MODE argv[5]=블록 인덱스 뒤에 argv[6]부터 레이어 파일
+	int layer_file_argv_base = 4;
+	if (argc > 5) {
+		string a4(argv[4]);
+		const bool arg4_looks_like_csv_path =
+			(a4.find(".csv") != string::npos) ||
+			(a4.size() >= 2 && (a4[0] == '.' || a4[0] == '/'));
+		if (!arg4_looks_like_csv_path)
+			layer_file_argv_base = 6;
+	}
+	// Optional wrapper args from main_run.py (layer_file_argv_base==6 일 때만 argv[4],[5] 해석)
+	int hw_mode_from_wrapper = 1;
+	vector<int> hw_block_idx_list_from_wrapper;
+	if (layer_file_argv_base == 6) {
+		if (argc > 4)
+			hw_mode_from_wrapper = atoi(argv[4]);
+		if (argc > 5) {
+			string block_idx_arg = argv[5];
+			string token;
+			stringstream ss(block_idx_arg);
+			while (getline(ss, token, ',')) {
+				token.erase(remove_if(token.begin(), token.end(), [](unsigned char c) { return isspace(c); }), token.end());
+				if (!token.empty()) {
+					hw_block_idx_list_from_wrapper.push_back(atoi(token.c_str()));
+				}
+			}
+		}
+	}
 
 	// Declarations Common to both Cases
 	double maxPESizeNM, maxTileSizeCM_x, maxTileSizeCM_y, numPENM, desiredNumTileNM, desiredPESizeNM, desiredNumTileCM, desiredTileSizeCM, desiredTileSizeCM_x, desiredTileSizeCM_y, desiredPESizeCM, desiredPESizeCM_x, desiredPESizeCM_y;
@@ -160,7 +190,7 @@ int main(int argc, char * argv[]) {
 			cout << "ERROR!: Memory precision is even higher than synapse precision, please modify 'cellBit' in Param.cpp!" << endl;
 			param->cellBit = param->synapseBit;
 		}
-		param->numColPerSynapse = ceil((double)param->synapseBit/(double)param->cellBit);
+		param->numColPerSynapse = ceil((double)param->synapseBit/(double)param->cellBit); // 하나의 양자화된 가중치를 몇개의 device로 분할할지 결정
 		param->numRowPerSynapse = 1;
 
 	if (param->mode)
@@ -168,9 +198,6 @@ int main(int argc, char * argv[]) {
 		//******************************************************** This is the Chiplet Chip Mode*********************************************************************
 		//***********************************************************************************************************************************************************
 		cout<<"*********************Starting Chiplet Partition*********************"<<endl;
-		int chip_size, chip_cnt, residue_area_cal;
-		chip_size = param->size_chiplet; 			// Gives the number of RRAM arrays in the each chiplet. We assume all the chiplets are same size
-		chip_cnt = 	param->cnt_chiplet; 			// Optional input to get a fixed size. Need to incorporate
 		int start = 0, end = 0, num_chip=0;
 		int num_chip_final = 0;
 		vector<int> start_array, end_array, split;
@@ -180,157 +207,158 @@ int main(int argc, char * argv[]) {
 		int i = 0;
 		double desiredTileSizeCM_x, desiredTileSizeCM_y;
 		double numTileTotal, matrixTotalCM, total_weights_per_chiplet, per_layer_tile_cnt;
+		vector<double> wq_layer_tile_cnt, wk_layer_tile_cnt, wv_layer_tile_cnt;
+		vector<double> k_layer_tile_cnt, v_layer_tile_cnt, wo_layer_tile_cnt;
 		desiredTileSizeCM_x = param->row_multiplier*param->numRowSubArray;
 		desiredTileSizeCM_y = param->col_multiplier*param->numColSubArray;
+		
 		int numRowPerSynapse, numColPerSynapse;
 		numRowPerSynapse = param->numRowPerSynapse;
 		numColPerSynapse = param->numColPerSynapse;
 		int excess = 1, max_excess = 1;
 		int set = 0;
 		cout<<"The size of the network is: "<<netStructure.size()<<endl;
+		// chiplet 당 tile 갯수 계산용 변수 선언 (05/06/26)
+		double tech_feature_size = param->featuresize;
+		double chiplet_area = param->sizeofchiplet;
+        double num_cell_per_chiplet;
+		double num_tile_per_chiplet;
+		double num_cell_per_layer;
+		double num_tile_per_layer;
+
+
+		int chip_size, chip_cnt, residue_area_cal;
+		chip_size = param->size_chiplet; 			// Gives the number of RRAM arrays in the each chiplet. We assume all the chiplets are same size
+		// chip_size = num_tile_per_chiplet; 			// Gives the number of RRAM arrays in the each chiplet. We assume all the chiplets are same size
+		chip_cnt = 	param->cnt_chiplet; 			// Optional input to get a fixed size. Need to incorporate
+		
+		// 디버깅 코드
+		cout<<"HW_MODE(from python): "<<hw_mode_from_wrapper<<endl;
+		cout<<"HW_BLOCK_IDX_LIST size(from python): "<<hw_block_idx_list_from_wrapper.size()<<endl;
+		if (!hw_block_idx_list_from_wrapper.empty()) {
+			cout<<"HW_BLOCK_IDX_LIST(from python): ";
+			for (size_t idx = 0; idx < hw_block_idx_list_from_wrapper.size(); idx++) {
+				cout<<hw_block_idx_list_from_wrapper[idx];
+				if (idx + 1 < hw_block_idx_list_from_wrapper.size()) {
+					cout<<",";
+				}
+			}
+			cout<<endl;
+		}
+
+		num_cell_per_chiplet = 0.6*((chiplet_area)/(10*(tech_feature_size*tech_feature_size)));
+		num_tile_per_chiplet = floor(num_cell_per_chiplet/(desiredTileSizeCM_x*desiredTileSizeCM_y));
+		cout<<"num_tile_per_chiplet: "<<num_tile_per_chiplet<<endl;
+
+
+
+
 		while (i<netStructure.size())
 		{
 			// cout<<"Layer we are partition testing is: "<<i<<endl;
 
 			// numTileTotal += ceil(((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double) numRowPerSynapse)/(double) tileSize_x) * ceil(netStructure[i][5]*numColPerSynapse/(double) tileSize_y);
 			// matrixTotalCM += netStructure[i][2]*netStructure[i][3]*netStructure[i][4]*numRowPerSynapse*netStructure[i][5]*numColPerSynapse;
-			if (netStructure[i][0] < netStructure[i][3])
-			{
-				numtileEachLayerRow = ceil((double) netStructure[i][2]*(double) (netStructure[i][0])*(double) netStructure[i][1]*(double) numRowPerSynapse/desiredTileSizeCM_x);
-				double numtileEachLayerCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) desiredTileSizeCM_y);
-				numTileTotal += numtileEachLayerRow * numtileEachLayerCol;
-				per_layer_tile_cnt = numtileEachLayerRow * numtileEachLayerCol;
-			}
-
-			else
-			{
-				numtileEachLayerRow = ceil((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double) numRowPerSynapse/desiredTileSizeCM_x);
-				double numtileEachLayerCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) desiredTileSizeCM_y);
-				numTileTotal += numtileEachLayerRow * numtileEachLayerCol;
-				per_layer_tile_cnt = numtileEachLayerRow * numtileEachLayerCol;
-			}
 			
-			// numTileTotal += numtileEachLayerRow * numtileEachLayerCol; Need to see why this is failing with compile error !!
+			/////////////////////////// 타일 개수 계산 (05/13/26 Minki Choi) ////////////////////////////
 
-			if (numTileTotal>chip_size)
+			num_cell_per_layer = netStructure[i][5]*netStructure[i][2]*(double)numColPerSynapse*(double)numRowPerSynapse;
+			cout<<"num_cell_per_layer: "<<num_cell_per_layer<<endl;
+			num_tile_per_layer = num_cell_per_layer/(desiredTileSizeCM_x*desiredTileSizeCM_y);
+			cout<<"num_tile_per_layer: "<<num_tile_per_layer<<endl;
+            
+			// CNN 추론용 tile count 계산
+			// if (netStructure[i][0] < netStructure[i][3])
+			// {
+			// 	numtileEachLayerRow = ceil((double) netStructure[i][2]*(double) (netStructure[i][0])*(double) netStructure[i][1]*(double)
+			// 	numRowPerSynapse/desiredTileSizeCM_x);
+			// 	double numtileEachLayerCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) desiredTileSizeCM_y);
+			// 	numTileTotal += numtileEachLayerRow * numtileEachLayerCol;
+			// 	per_layer_tile_cnt = numtileEachLayerRow * numtileEachLayerCol;
+			// }
+
+			// else
+			// {
+			// 	numtileEachLayerRow = ceil((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double)
+			// 	numRowPerSynapse/desiredTileSizeCM_x);
+			// 	double numtileEachLayerCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) desiredTileSizeCM_y);
+			// 	numTileTotal += numtileEachLayerRow * numtileEachLayerCol;
+			// 	per_layer_tile_cnt = numtileEachLayerRow * numtileEachLayerCol;
+			// }
+			
+			// LLM 추론용 tile count 계산 (05/13/26 Minki Choi)
+            numtileEachLayerRow = ceil((netStructure[i][5])*(double)numRowPerSynapse/desiredTileSizeCM_x); // 타일 당 Xbar 가로 갯수
+			double numtileEachLayerCol = ceil((double)netStructure[i][2]*(double)numColPerSynapse/desiredTileSizeCM_y); // 타일 당 Xbar 세로 갯수
+            numTileTotal += numtileEachLayerRow * numtileEachLayerCol;
+			cout<<"numTileTotal: "<<numTileTotal<<endl;
+			per_layer_tile_cnt = numtileEachLayerRow * numtileEachLayerCol;
+			
+
+
+
+			/////////// 칩렛 분할 (05/13/26 Minki Choi) ///////////
+			if (hw_mode_from_wrapper == 1) // Mode 1: 한 트랜스포머 블록(6 layers, Wq/Wk/Wv/K/V/Wo) 단위로 칩렛 분할
 			{
-				if (per_layer_tile_cnt <= chip_size)
+				if (i % 6 == 0) // i = 0, 6, 12, ... → 블록 첫 레이어(Wq) 위치에서 칩렛 용량 검사
 				{
-					if (i==0)
+					if ((numTileTotal + 6 * per_layer_tile_cnt) > num_tile_per_chiplet) // 현재 칩렛에 이번 블록(6 layer) 통째로 더 넣을 여유 없음 → 칩렛 종료, 새 칩렛 생성
 					{
-						cout<<"We are setting the first chiplet such that the whole first layer is inside it."<<endl;
-						numTileTotal = 0;
-						matrixTotalCM = 0;
-						start_array.push_back(0);
-						end_array.push_back(0);
-						split.push_back(1);
-						start = i+1;
-						cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
-						num_chip+=1;
-						num_chip_final +=1;
-
+						if (i == 0) // 첫 블록부터 넘침: 닫을 이전 칩렛이 없으므로 그대로 첫 칩렛에서 시작
+						{
+							cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
+						}
+						else
+						{
+							end = i - 1; // 현재 칩렛은 이전 블록까지만 담음
+							start_array.push_back(start);
+							end_array.push_back(end);
+							split.push_back(1);
+							cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
+							num_chip += 1;
+							num_chip_final += 1;
+							numTileTotal = per_layer_tile_cnt; // 새 칩렛에는 현재 레이어 하나만 들어있는 상태로 시작
+							matrixTotalCM = 0;
+							start = i; // 새 칩렛은 현재 레이어부터
+							cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
+						}
 					}
-					
-					else
+					else // 현재 칩렛에 이번 블록을 통째로 더 넣을 수 있음 → 그대로 할당
 					{
-						// cout<<"NumtileTotal when we partition is "<< numTileTotal<<endl;
-						end = i-1;		
-						numTileTotal = 0;
-						matrixTotalCM = 0;
-						start_array.push_back(start);
-						end_array.push_back(end);
-						split.push_back(1);
-						cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
-						start = i;
-						num_chip+=1;
-						num_chip_final+=1;
+						cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
+						
 					}
 				}
-
-				else
+				else if (i == netStructure.size()-1) // 마지막 레이어 도달 (블록 중간에서 끝나는 경우)
 				{
-					cout<<"Warning: The layer is too big for a single chiplet. Need to break layer between different chiplets for homogeneous tile mapping"<<endl;
-					// cout<<"NumtileTotal when we partition is "<< numTileTotal<<endl;
-					if (numTileTotal>per_layer_tile_cnt)
-					{
-						end = i-1;		
-						numTileTotal = 0;
-						matrixTotalCM = 0;
-						start_array.push_back(start);
-						end_array.push_back(end);
-						split.push_back(1);
-						cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
-						num_chip+=1;
-						num_chip_final+=1;
-
-						start+=1;
-						end+=1;
-						start_array.push_back(start);
-						end_array.push_back(end);
-						excess = ceil(per_layer_tile_cnt/chip_size);
-						if (excess>max_excess)
-						{
-							max_excess = excess;
-						}
-						l.push_back(i);
-						split.push_back(excess);
-						cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
-						num_chip+=1;
-						num_chip_final+=excess;
-						if (i == netStructure.size()-1)
-						{
-							cout<<"Last layer"<<endl;
-							set=1;
-						}
-						i+=1;
-						start = i;
-					}
-					else
-					{
-						cout<<"There is no residue layer from previous itteration to be partitioned."<<endl;
-						end=i;
-						numTileTotal = 0;
-						matrixTotalCM = 0;
-						start_array.push_back(start);
-						end_array.push_back(end);
-						excess = ceil(per_layer_tile_cnt/chip_size);
-						if (excess>max_excess)
-						{
-							max_excess = excess;
-						}
-						split.push_back(excess);
-						l.push_back(i);
-						cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
-						num_chip+=1;
-						num_chip_final+=excess;
-						if (i == netStructure.size()-1)
-						{
-							cout<<"Last layer"<<endl;
-							set=1;							
-						}
-						i+=1;
-						start = i;
-					}											
-				}		
+					end = i;
+					start_array.push_back(start);
+					end_array.push_back(end);
+					split.push_back(1);
+					cout<<"Last Layer"<<endl;
+					cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
+				}
+				else // 블록 중간 레이어 → 현재 칩렛에 그대로 할당
+				{
+					cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
+				}
 			}
-			else if (i == netStructure.size()-1)
+			else if (hw_mode_from_wrapper == 0) // Mode 0: 아직 미구현 (TODO)
 			{
-				end = i;
-				start_array.push_back(start);
-				end_array.push_back(end);
-				split.push_back(1);
-				cout<<"Last Layer"<<endl;
-				cout<<"Layers "<<start<<" to "<<end<<" is in the chiplet "<< num_chip << endl;
-				i+=1;
-				//Num Chip starts from 0 so no need to add it here
+				return 0;
 			}
-			else
-			{
-				// cout<<"NumtileTotal when we partition is "<<numTileTotal<<endl;
-				cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
-				i+=1;
-			}			
+			i += 1;
 		}
+        
+
+
+
+        // if (numTileTotal <= chip_size) //chip_size(=num tile per chiplet)는 사용자 입력값에 따라 Die max size 고려하여 
+		// //
+		// cout<<"Layer "<<i<<" is in the chiplet "<< num_chip << endl;
+		// else { // numTileTotal > chip_size
+		// 	if ()
+		// }
+
 
 		if (set)
 		{
@@ -354,7 +382,7 @@ int main(int argc, char * argv[]) {
 				exit(1);
 			}
 		}
-
+        // 위에서 계산한 chiplet 분할 정보 csv로 출력
 		std::ofstream myfile_dump;
 			myfile_dump.open ("./to_interconnect/chiplet_breakup.csv"); //Dumps file for the chiplet breakup for BookSim.
 		for(int i=0; i<(num_chip+1); i++) 
@@ -382,7 +410,7 @@ int main(int argc, char * argv[]) {
 			cout<<"**************************************************************"<<endl;
 			cout<<"Layers in Chiplet "<<i<<" are "<<start<<" to "<<end<<endl;
 			cout<<"**************************************************************"<<endl;
-			netStructure_chiplet = slicing(netStructure, start, end);
+			netStructure_chiplet = slicing(netStructure, start, end); // 전체 netStructure 중, 현재 칩렛에 해당하는 부분만 slice 후 FloorPlan
 			// netStructure_chiplet = netStructure[std::slice(start, end-start+1, 1)][std::slice(netStructure[1].begin(), netStructure[1].end(), 1)];
 
 			markNM = ChipDesignInitialize(inputParameter, tech, cell, netStructure_chiplet, &maxPESizeNM, &maxTileSizeCM_x, &maxTileSizeCM_y, &numPENM, param->mode);	
@@ -589,10 +617,10 @@ int main(int argc, char * argv[]) {
 
 			for (int i=0; i<netStructure_chiplet.size(); i++) 
 			{
-				cout<<"The weight matirx we are loading is: "<<argv[2*(i+start)+4]<<endl;
+				cout<<"The weight matirx we are loading is: "<<argv[2*(i+start)+layer_file_argv_base]<<endl;
 				cout << "-------------------- Estimation of Layer " << i+start+1 << " ----------------------" << endl;
 
-				ChipCalculatePerformance(cell, i, argv[2*(i+start)+4], argv[2*(i+start)+4], argv[2*(i+start)+5], netStructure_chiplet[i][6],
+				ChipCalculatePerformance(cell, i, argv[2*(i+start)+layer_file_argv_base], argv[2*(i+start)+layer_file_argv_base], argv[2*(i+start)+layer_file_argv_base+1], netStructure_chiplet[i][6],
 							netStructure_chiplet, markNM, numTileEachLayer, utilizationEachLayer, speedUpEachLayer, tileLocaEachLayer,
 							numPENM, desiredPESizeNM, desiredTileSizeCM_x, desiredTileSizeCM_y, desiredPESizeCM_x, desiredPESizeCM_y, CMTileheight, CMTilewidth, NMTileheight, NMTilewidth,
 							&layerReadLatency, &layerReadDynamicEnergy, &tileLeakage, &layerbufferLatency, &layerbufferDynamicEnergy, &layericLatency, &layericDynamicEnergy,
@@ -1011,7 +1039,7 @@ int main(int argc, char * argv[]) {
 
 			cout << "-------------------- Estimation of Layer " << i+1 << " ----------------------" << endl;
 
-			ChipCalculatePerformance(cell, i, argv[2*i+4], argv[2*i+4], argv[2*i+5], netStructure[i][6],
+			ChipCalculatePerformance(cell, i, argv[2*i+layer_file_argv_base], argv[2*i+layer_file_argv_base], argv[2*i+layer_file_argv_base+1], netStructure[i][6],
 						netStructure, markNM, numTileEachLayer, utilizationEachLayer, speedUpEachLayer, tileLocaEachLayer,
 						numPENM, desiredPESizeNM, desiredTileSizeCM_x, desiredTileSizeCM_y, desiredPESizeCM_x, desiredPESizeCM_y, CMTileheight, CMTilewidth, NMTileheight, NMTilewidth,
 						&layerReadLatency, &layerReadDynamicEnergy, &tileLeakage, &layerbufferLatency, &layerbufferDynamicEnergy, &layericLatency, &layericDynamicEnergy,
