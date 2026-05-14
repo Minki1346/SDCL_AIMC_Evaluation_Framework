@@ -57,7 +57,7 @@ Param::Param() {
 								// 2: cell.memCellType = Type::RRAM
 								// 3: cell.memCellType = Type::FeFET
 
-	accesstype = 4;         	// 1: cell.accessType = CMOS_access
+	accesstype = 1;         	// 1: cell.accessType = CMOS_access
 								// 2: cell.accessType = BJT_access
 								// 3: cell.accessType = diode_access
 								// 4: cell.accessType = none_access (Crossbar Array)
@@ -110,11 +110,13 @@ Param::Param() {
 
 	size_chiplet = 16; 			// Gives the number of Tiles in the each chiplet. We assume all the chiplets are same size. Each tile has 16 crossbar arrays
 	cnt_chiplet = 25; 			// Optional input to get a fixed size. Need to incorporate
-	fixed_cnt_chiplet = true;	// true: We have a fixed number of chiplets in the fabric irrespective the number we need.
+	fixed_cnt_chiplet = false;	// true: We have a fixed number of chiplets in the fabric irrespective the number we need.
 								// false: The required number of chiplets only exist. (Custom Design)
 	Chiplet_GAccumulator = 32;	// User input to give the size of the parallel adds we do
 	//*****************************
 
+
+	//*********** Cell Parameters ***********
 	heightInFeatureSizeSRAM = 8;                  // SRAM Cell height in feature size
 	widthInFeatureSizeSRAM = 20;                     // SRAM Cell width in feature size
 	widthSRAMCellNMOS = 2.08;
@@ -126,6 +128,10 @@ Param::Param() {
 	widthInFeatureSize1T1R = 4;                     // 1T1R Cell width in feature size
 	heightInFeatureSizeCrossbar = 2;                // Crossbar Cell height in feature size
 	widthInFeatureSizeCrossbar = 2;                 // Crossbar Cell width in feature size
+    
+
+	// featuresize = 22e-9;							// feature size (nm) 05/06/26
+	sizeofchiplet = 26e-3 * 33e-3;					// chiplet 크기 (mm^2) 05/06/26
 
 	relaxArrayCellHeight = 0;         // relax ArrayCellHeight or not
 	relaxArrayCellWidth = 0;          // relax ArrayCellWidth or not
@@ -135,7 +141,7 @@ Param::Param() {
 	treeFoldedRatio = 4;
 	maxGlobalBusWidth = 64;    		// the max buswidth allowed on top-level
 	clkFreq = 1e9;               // Clock frequency
-	featuresize = 40e-9;         // Wire width for subArray simulation
+	featuresize = 22*pow(10, -9);         // Wire width for subArray simulation
 	temp = 301;                  // Temperature (K)
 	technode = 32;               // Technology
 	wireWidth = 40;                                    // wireWidth of the cell for Accuracy calculation
@@ -164,7 +170,7 @@ Param::Param() {
 	numColMuxed = 8;             // How many columns share 1 read circuit (for neuro mode with analog RRAM) or 1 S/A (for memory mode or neuro mode with digital RRAM)
 	numWriteColMuxed = 4;        // How many columns share 1 write column decoder driver (for memory or neuro mode with digital RRAM)
 	levelOutput = 16;             // # of levels of the multilevelSenseAmp output or ADC
-	cellBit = 1;                 // precision of memory device
+	cellBit = 4;                 // precision of memory device
 
 	if (memcelltype == 1) {
 		cellBit = 1;             // force cellBit = 1 for all SRAM cases
