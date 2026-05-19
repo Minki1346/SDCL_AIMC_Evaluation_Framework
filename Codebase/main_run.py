@@ -74,11 +74,7 @@ n_lane = 32
 n_bits_per_chiplet = 4.19E+06 #Automate this in next version
 scale_nop = 10
 
-HW_MODE = 0 # 0 : qkvo + up, gate, down + kv cache 
-            # 1 : qkvo + kv cache 
-HW_BLOCK_IDX_LIST=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
 
-# HW_BLOCK_IDX_LIST=[0]
 
 def write_matrix_weight(input_matrix, filename):
     cout = input_matrix.shape[-1]
@@ -155,11 +151,16 @@ def dec2bin(x,n):
 
     return out,scale_list
 
+# HW_BLOCK_IDX_LIST=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+HW_BLOCK_IDX_LIST= [0, 1, 2]
+HW_MODE = 0 # 0 : qkvo + up, gate, down + kv cache 
+            # 1 : qkvo + kv cache 
+# HW_BLOCK_IDX_LIST=[0, 1, 2, 3]
 
 def main():
 
-    IN = []
-    W = []
+    # IN = []
+    # W = []
     print("Starting the parsing of the network")
     # delete directories if these exist
     if not os.path.exists('./layer_record'):
@@ -182,11 +183,47 @@ def main():
     # Read the NetWork.csv file
     if HW_MODE == 0:
         network_params = np.loadtxt('./SIAM/NetWork_mode_0.csv', dtype=int, delimiter=',')
+        proj_list = ['q_proj', 'k_proj', 'v_proj', 'k_cache', 'v_cache', 'o_proj','gate_proj', 'up_proj', 'down_proj']
+        # proj_list = ['q_proj', 'k_proj', 'v_proj', 'o_proj','gate_proj', 'up_proj', 'down_proj']
     else:
         network_params = np.loadtxt('./SIAM/NetWork_mode_1.csv', dtype=int, delimiter=',')
+        # proj_list = ['q_proj', 'k_proj', 'v_proj', 'o_proj', ]
+        proj_list = ['q_proj', 'k_proj', 'v_proj', 'k_cache', 'v_cache', 'o_proj']
+        
+
+
+        
     # network_params = np.loadtxt('./SIAM/NetWork.csv', dtype=int, delimiter=',')
     network_params = np.tile(network_params, (len(HW_BLOCK_IDX_LIST), 1))
     
+    
+    selected_pairs = []
+    for block_idx in HW_BLOCK_IDX_LIST:
+        block_weight_dir = BASE_DIR / 'layer_record' / 'weight_int8' / str(block_idx)
+        block_activation_dir = BASE_DIR / 'layer_record' / 'activation_int8' / str(block_idx)
+        for proj_name in proj_list:
+            weight_csv = block_weight_dir / proj_name / f'weight_{block_idx},{proj_name}.csv'
+            activation_csv = block_activation_dir / proj_name / f'activation_{block_idx},{proj_name}.csv'
+            if weight_csv.is_file() and activation_csv.is_file():
+                selected_pairs.append((weight_csv, activation_csv))
+
+            activation_data = np.loadtxt(str(activation_csv), delimiter=',').astype(np.int16)
+            input_shape = activation_data.shape
+            # print(input_shape[0])
+            
+            my_file = Path("./to_interconnect/ip_activation.csv")
+            if my_file.is_file():
+                with open('./to_interconnect/ip_activation.csv', 'a') as q: #Dumps file for the ip_activation for the interconnect simulator.
+                    q.write(str(input_shape[0]*input_length))
+                    q.write("\n")
+                    q.close()
+            else:
+                with open('./to_interconnect/ip_activation.csv', 'w') as q: #Dumps file for the ip_activation for the interconnect simulator.
+                    q.write(str(input_shape[0]*input_length))
+                    q.write("\n")
+                    q.close()
+
+
     np.savetxt(
         str(BASE_DIR / 'SIAM' / 'NetWork.csv'),
         np.atleast_2d(network_params).astype(int),
@@ -194,33 +231,25 @@ def main():
         fmt='%d',
     )
 
-    num_layers = network_params.shape[0]
+    # num_layers = network_params.shape[0]
 
     # Create input matrix and weight matrix
     # Ideally if should be extracted from the network itself frm Pytroch or TensorFlow. Need to add this.
     # In interest of the different sturctures we can have higher flexibility
 
     # Regular Code
-    for layer_idx in range(0, num_layers):            
-        params_row = network_params[layer_idx]
-        temp_array_IN = np.ones(shape=(1, network_params[layer_idx][2], \
-                                        network_params[layer_idx][1], \
-                                            network_params[layer_idx][0]), dtype='int8')
-        IN.append(temp_array_IN)
-        
-
-        # if (layer_idx == (num_layers-1)):
-        #         temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
-        #                                             network_params[layer_idx][3], network_params[layer_idx][2], \
-        #                                                 num_classes), dtype='int8')
-        # else:
-        #     temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
-        #                                         network_params[layer_idx][3], network_params[layer_idx][2], \
-        #                                             network_params[layer_idx][5]), dtype='int8')
-        temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
-                                                network_params[layer_idx][3], network_params[layer_idx][2], \
-                                                    network_params[layer_idx][5]), dtype='int8')
-        W.append(temp_array_W)
+    # for layer_idx in range(0, num_layers):            
+    #     params_row = network_params[layer_idx]
+    #     temp_array_IN = np.ones(shape=(1, network_params[layer_idx][2], \
+    #                                     network_params[layer_idx][1], \
+    #                                         network_params[layer_idx][0]), dtype='int8')
+    #     IN.append(temp_array_IN)
+    #
+    #
+    #     temp_array_W = np.ones(shape=(network_params[layer_idx][4], \
+    #                                             network_params[layer_idx][3], network_params[layer_idx][2], \
+    #                                                 network_params[layer_idx][5]), dtype='int8')
+    #     W.append(temp_array_W)
    
     f.write('./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
 
@@ -229,17 +258,30 @@ def main():
     # Debug Line
     # f.write('gdb --args ./SIAM/main ./SIAM/NetWork.csv '+str(weight_length)+' '+str(input_length)+' ')
 
-    for i,(input,weight) in enumerate(zip(IN,W)):
-        input_file_name = 'input_layer' + str(i) + '.csv'
-        weight_file_name = 'weight_layer' + str(i) + '.csv'
-        f.write(output_path + weight_file_name+' '+output_path + input_file_name+' ')
-        write_matrix_weight(weight, output_path + weight_file_name)
-        if len(weight.shape) > 2:
-            k = weight.shape[0]
-            write_matrix_activation_conv(stretch_input(input, input_length, k), None, input_length, output_path + input_file_name)
-        else:
-            write_matrix_activation_fc(input, input_length, None, input_length, output_path + input_file_name)
+    # for i,(input,weight) in enumerate(zip(IN,W)):
+    #     input_file_name = 'input_layer' + str(i) + '.csv'
+    #     weight_file_name = 'weight_layer' + str(i) + '.csv'
+    #     f.write(output_path + weight_file_name+' '+output_path + input_file_name+' ')
+    #     write_matrix_weight(weight, output_path + weight_file_name)
+    #     if len(weight.shape) > 2:
+    #         k = weight.shape[0]
+    #         write_matrix_activation_conv(stretch_input(input, input_length, k), None, input_length, output_path + input_file_name)
+    #     else:
+    #         write_matrix_activation_fc(input, input_length, None, input_length, output_path + input_file_name)
+
+    for weight_csv, activation_csv in selected_pairs:
+        f.write(str(weight_csv) + ' ' + str(activation_csv) + ' ')
     f.close()
+
+
+
+
+
+
+
+
+
+
 
     # # Estimation of computation performance
     print("Starting the Estimation of the Performance")
@@ -248,10 +290,10 @@ def main():
     # # start = time.time()
    
     # perform cycle accurate noc simulation
-    interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale)
+    # interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale)
 
     # NoP Estimation
-    nop_interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale_nop)
+    # nop_interconnect_estimation(quantization_bit, bus_width, netname, xbar_size, chiplet_size, num_chiplets, type, scale_nop)
 
     # Calculate and Dump NoP Hardware Cost
     Nop_area, NoP_energy = NoP_hardware_estimation(ebit, area_per_lane, clocking_area, n_lane, num_chiplets, n_bits_per_chiplet)
